@@ -519,7 +519,7 @@ sub getModules()
         # relative path to modules
         abs_path($TOOL_DIR)."/../share/pkgdiff",
         # system directory
-        'MODULES_INSTALL_PATH'
+        '/usr/local/share/pkgdiff'
     );
     foreach my $DIR (@SEARCH_DIRS)
     {
@@ -1444,6 +1444,24 @@ sub skipFile($)
     return 0;
 }
 
+sub humanReadableSize($)
+{
+    my $Suffix = "B";
+    my $Bytes = $_[0];
+
+    if ($Bytes > 2048)
+    {
+        $Bytes /= 1024;
+        $Suffix = "KB";
+    }
+    if ($Bytes > 2048)
+    {
+        $Bytes /= 1024;
+        $Suffix = "MB";
+    }
+    return "".int($Bytes + 0.5)." ".$Suffix;
+}
+
 sub detectChanges()
 {
     foreach my $E ("info-diffs", "diffs", "details") {
@@ -1506,6 +1524,7 @@ sub detectChanges()
         {
             $FileChanges{$Format}{"SizeDelta"} += $Size;
             $FileChanges{$Format}{"Size"} += $Size;
+            $FileChanges{$Format}{"Details"}{$Name}{"Size"} = humanReadableSize($Size);
         }
         $FileChanges{$Format}{"Details"}{$Name}{"Status"} = "removed";
     }
@@ -1606,6 +1625,7 @@ sub detectChanges()
             printMsg("INFO", $Name);
         }
         my ($NewPath, $NewName) = ($PackageFiles{2}{$Name}, $Name);
+        my $NewSize = getSize($NewPath);
         my $Format = getFormat($Path);
         if($StableFiles{$Name})
         { # stable files
@@ -1623,6 +1643,7 @@ sub detectChanges()
         
         my ($Changed, $DLink, $RLink, $Rate, $Adv) = compareFiles($Path, $NewPath, $Name, $NewName);
         my %Details = %{$Adv};
+        $Details{"Size"} = humanReadableSize($Size)." -> ".humanReadableSize($NewSize);
         
         if($Changed==1 or $Changed==3)
         {
@@ -1707,6 +1728,7 @@ sub detectChanges()
         {
             $FileChanges{$Format}{"SizeDelta"} += $Size;
             $FileChanges{$Format}{"Size"} += $Size;
+            $FileChanges{$Format}{"Details"}{$Name}{"Size"} = humanReadableSize($Size);
         }
         $FileChanges{$Format}{"Details"}{$Name}{"Status"} = "added";
     }
@@ -2109,8 +2131,8 @@ sub getReportFiles()
         }
         
         $Report .= "<a name='".$FormatInfo{$Format}{"Anchor"}."'></a>\n";
-        $Report .= "<h2>".$FormatInfo{$Format}{"Title"}." (".$FileChanges{$Format}{"Total"}.")</h2><hr/>\n";
-        $Report .= "<table class='summary highlight'>\n";
+        $Report .= "<h2i onclick=\"toggleVisibility(document.getElementById('table-".$FormatInfo{$Format}{"Anchor"}."'))\">".$FormatInfo{$Format}{"Title"}." (".$FileChanges{$Format}{"Total"}.")</h2><hr/>\n";
+        $Report .= "<table class='summary highlight' id=\"table-".$FormatInfo{$Format}{"Anchor"}."\">\n";
         $Report .= "<tr>\n";
         $Report .= "<th $JSort>Name</th>\n";
         $Report .= "<th $JSort>Status</th>\n";
@@ -2118,6 +2140,7 @@ sub getReportFiles()
         {
             $Report .= "<th $JSort>Delta</th>\n";
             $Report .= "<th>Visual<br/>Diff</th>\n";
+            $Report .= "<th>Size</th>\n";
             
             if($ShowDetails)
             {
@@ -2233,6 +2256,8 @@ sub getReportFiles()
                 else {
                     $Report .= "<td$Join></td>\n";
                 }
+
+                $Report .= "<td>".$Info{"Size"}."</td>";
                 
                 if($ShowDetails)
                 {
@@ -3281,6 +3306,13 @@ sub composeHTMLHead($$$$$)
     <script type=\"text/javascript\" language=\"JavaScript\">
     <!--
     $Scripts
+    var toggleVisibility = function(element) {
+        if(element.style.display=='none'){
+            element.style.display='';
+        } else {
+            element.style.visibility='none';
+        }
+    };
     -->
     </script>
     </head>";
